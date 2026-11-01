@@ -5,6 +5,7 @@ import os
 
 import pytest
 
+from kicad_mcp_server.tools.pcb_layout import setup_pcb_layout
 from kicad_mcp_server.tools.schematic_editor import (
     add_component_from_library,
     add_global_label,
@@ -13,6 +14,7 @@ from kicad_mcp_server.tools.schematic_editor import (
     add_wire,
 )
 from kicad_mcp_server.utils.kicad_lock import (
+    check_board_not_open,
     check_schematic_not_open,
     lock_file_path,
 )
@@ -136,6 +138,18 @@ class TestCheckSchematicNotOpen:
         assert check_schematic_not_open(link) is not None
 
 
+class TestCheckBoardNotOpen:
+    def test_board(self, tmp_path):
+        pcb = write(tmp_path / "board.kicad_pcb", "(kicad_pcb)")
+        assert check_board_not_open(pcb) is None
+        lock_path = lock(pcb)
+        error = check_board_not_open(pcb)
+        assert error is not None
+        assert error.startswith("Error: KiCad has the board open")
+        assert str(lock_path) in error
+        assert "close the PCB editor" in error
+
+
 WRITE_TOOLS = [
     pytest.param(
         lambda p: add_component_from_library(p, "Device", "R", "R1", "10k"), id="component"
@@ -165,3 +179,11 @@ class TestWriteToolsRefuseOpenFiles:
         result = asyncio.run(add_wire(str(sub), [(0, 0), (10, 0)]))
         assert "✅" in result, result
         assert "(wire" in sub.read_text(encoding="utf-8")
+
+    def test_setup_pcb_layout_does_not_write_an_open_board(self, board):
+        root, _ = board
+        pcb = write(root.with_suffix(".kicad_pcb"), "(kicad_pcb)")
+        lock(pcb)
+        result = asyncio.run(setup_pcb_layout(str(root)))
+        assert result.startswith("Error: KiCad has the board open"), result
+        assert pcb.read_text(encoding="utf-8") == "(kicad_pcb)"

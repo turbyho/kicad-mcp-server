@@ -1,9 +1,9 @@
 """Guard for KiCad files that a KiCad editor has open.
 
-Some tools write a .kicad_sch file directly. When a KiCad editor has the
-file open, KiCad does not read the change, and the next save in KiCad
-removes it. Thus each such tool calls a check of this module just before
-the write, and refuses the write when KiCad has the file open.
+Some tools write a .kicad_sch or .kicad_pcb file directly. When a KiCad
+editor has the file open, KiCad does not read the change, and the next save
+in KiCad removes it. Thus each such tool calls a check of this module just
+before the write, and refuses the write when KiCad has the file open.
 
 KiCad 8 and later writes the lock file ``~<file name>.lck`` next to the file
 that an editor opens, for example ``~board.kicad_sch.lck``. The lock file
@@ -91,6 +91,23 @@ def check_schematic_not_open(file_path: str | Path) -> str | None:
     return None
 
 
+def check_board_not_open(file_path: str | Path) -> str | None:
+    """Do a check if KiCad has a board open, before a tool writes it.
+
+    Args:
+        file_path: Path to the .kicad_pcb file that the tool writes.
+
+    Returns:
+        None if KiCad does not have the board open. Else, an error message
+        for the LLM that tells the user to close the PCB editor.
+    """
+    path = Path(os.path.abspath(file_path))
+    lock = _existing_lock(path)
+    if lock:
+        return _open_error(path, lock, "board", "PCB editor")
+    return None
+
+
 def write_schematic(path: Path, content: str, encoding: str | None = None) -> str | None:
     """Write a schematic file, if KiCad does not have it open.
 
@@ -101,6 +118,22 @@ def write_schematic(path: Path, content: str, encoding: str | None = None) -> st
         None after the write. Else, the error message of the guard.
     """
     open_error = check_schematic_not_open(path)
+    if open_error:
+        return open_error
+    path.write_text(content, encoding=encoding)
+    return None
+
+
+def write_board(path: Path, content: str, encoding: str | None = None) -> str | None:
+    """Write a board file, if KiCad does not have it open.
+
+    Each tool that writes a board must use this function. The check is just
+    before the write, to keep the time between them short.
+
+    Returns:
+        None after the write. Else, the error message of the guard.
+    """
+    open_error = check_board_not_open(path)
     if open_error:
         return open_error
     path.write_text(content, encoding=encoding)

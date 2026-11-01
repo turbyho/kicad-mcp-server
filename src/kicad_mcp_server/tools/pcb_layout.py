@@ -6,6 +6,7 @@ from pathlib import Path
 
 from ..server import mcp
 from ..utils.kicad_cli import run_kicad_cli
+from ..utils.kicad_lock import write_board
 from ..utils.kicad_version import get_pcb_version
 
 _KICAD_CLI_MISSING_MSG = """⚠️ kicad-cli not found (PATH or KiCad install directory).
@@ -162,7 +163,9 @@ async def setup_pcb_layout(
 )
 '''
 
-        pcb_path.write_text(pcb_content, encoding="utf-8")
+        open_error = write_board(pcb_path, pcb_content, encoding="utf-8")
+        if open_error:
+            return open_error
 
         # Report what is actually in the file, never features the write did
         # not produce (issue #17).
