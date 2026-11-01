@@ -4,6 +4,7 @@ from pathlib import Path
 
 from ..parsers.schematic_parser import SchematicParser
 from ..server import mcp
+from ..utils.sch_hierarchy import AmbiguousRootError, find_root_schematic
 
 
 @mcp.tool()
@@ -208,11 +209,19 @@ async def list_schematic_nets(
             nets = [n for n in nets if any(kw in n.name.lower() for kw in power_keywords)]
 
         # Sub-sheet detection: unnamed nets can't be resolved without hierarchy
-        from .netlist import _find_root_schematic
-
         sch_path = Path(file_path)
-        root_sch = _find_root_schematic(sch_path)
         subsheet_note = ""
+        try:
+            root_sch = find_root_schematic(sch_path)
+        except AmbiguousRootError as e:
+            root_sch = None
+            subsheet_note = (
+                f"**Note:** {e}. "
+                f"Unnamed wire-only nets cannot be resolved without the full "
+                f"hierarchy context and will not appear here. "
+                f"Use `generate_netlist` on one of these root schematics "
+                f"for complete net data."
+            )
         if root_sch:
             subsheet_note = (
                 f"**Note:** `{sch_path.name}` is a sub-sheet. "

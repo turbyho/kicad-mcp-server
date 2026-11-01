@@ -1,5 +1,6 @@
 """Tests for the sheet hierarchy of KiCad projects."""
 
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -196,3 +197,31 @@ class TestFindRootSchematic:
         assert find_root_schematic(child) is None
         write(tmp_path / "~root.kicad_pro.lck", "{}")
         assert find_root_schematic(child) == root
+
+
+class TestToolsWithTwoRoots:
+    """The tools tell the agent when more than one root holds a sub-sheet."""
+
+    @pytest.fixture
+    def sub(self, tmp_path):
+        project(tmp_path, "a", "sub.kicad_sch")
+        project(tmp_path, "b", "sub.kicad_sch")
+        return write(tmp_path / "sub.kicad_sch")
+
+    def test_generate_netlist(self, sub):
+        from kicad_mcp_server.tools.netlist import generate_netlist
+
+        result = asyncio.run(generate_netlist(str(sub)))
+        assert result.startswith("❌") and "more than one root schematic" in result
+
+    def test_run_erc(self, sub):
+        from kicad_mcp_server.tools.validation import run_erc
+
+        result = asyncio.run(run_erc(str(sub)))
+        assert result.startswith("❌") and "more than one root schematic" in result
+
+    def test_pin_analysis(self, sub):
+        from kicad_mcp_server.tools.pin_analysis import analyze_pin_functions
+
+        result = asyncio.run(analyze_pin_functions(str(sub)))
+        assert "more than one root schematic" in result
