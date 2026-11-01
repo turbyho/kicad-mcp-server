@@ -108,33 +108,75 @@ def check_board_not_open(file_path: str | Path) -> str | None:
     return None
 
 
-def write_schematic(path: Path, content: str, encoding: str | None = None) -> str | None:
+FileStamp = tuple[int, int] | None
+
+
+def file_stamp(path: Path) -> FileStamp:
+    """Return the modification time and the size of a file, or None if no file.
+
+    A tool gets the stamp before it reads the file, and gives it to
+    write_schematic() or write_board(). When the stamp changed before the
+    write, an other program (for example KiCad, before it closed) saved the
+    file in the meantime, and the write would remove that save.
+    """
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return None
+    return (stat.st_mtime_ns, stat.st_size)
+
+
+def _guarded_write(
+    path: Path, content: str, stamp: FileStamp, encoding: str | None, open_error: str | None
+) -> str | None:
+    if open_error:
+        return open_error
+    if file_stamp(path) != stamp:
+        return (
+            f"Error: The file {path} changed after this tool read it. "
+            "Thus the tool did not write the file, to keep that change. "
+            "Do this operation again."
+        )
+    path.write_text(content, encoding=encoding)
+    return None
+
+
+def write_schematic(
+    path: Path, content: str, stamp: FileStamp, encoding: str | None = None
+) -> str | None:
     """Write a schematic file, if KiCad does not have it open.
 
-    Each tool that writes a schematic must use this function. The check is
-    just before the write, to keep the time between them short.
+    Each tool that writes a schematic must use this function. The checks are
+    just before the write, to keep the time between them and the write short.
+
+    Args:
+        path: The .kicad_sch file.
+        content: The new content of the file.
+        stamp: The file_stamp() of the file before the tool read it.
+        encoding: The encoding of the file.
 
     Returns:
-        None after the write. Else, the error message of the guard.
+        None after the write. Else, the error message for the LLM.
     """
-    open_error = check_schematic_not_open(path)
-    if open_error:
-        return open_error
-    path.write_text(content, encoding=encoding)
-    return None
+    return _guarded_write(path, content, stamp, encoding, check_schematic_not_open(path))
 
 
-def write_board(path: Path, content: str, encoding: str | None = None) -> str | None:
+def write_board(
+    path: Path, content: str, stamp: FileStamp, encoding: str | None = None
+) -> str | None:
     """Write a board file, if KiCad does not have it open.
 
-    Each tool that writes a board must use this function. The check is just
-    before the write, to keep the time between them short.
+    Each tool that writes a board must use this function. The checks are
+    just before the write, to keep the time between them and the write short.
+
+    Args:
+        path: The .kicad_pcb file.
+        content: The new content of the file.
+        stamp: The file_stamp() of the file before the tool read it, or
+            before the tool made the new content.
+        encoding: The encoding of the file.
 
     Returns:
-        None after the write. Else, the error message of the guard.
+        None after the write. Else, the error message for the LLM.
     """
-    open_error = check_board_not_open(path)
-    if open_error:
-        return open_error
-    path.write_text(content, encoding=encoding)
-    return None
+    return _guarded_write(path, content, stamp, encoding, check_board_not_open(path))

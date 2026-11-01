@@ -6,7 +6,7 @@ from pathlib import Path
 
 from ..server import mcp
 from ..utils.kicad_cli import run_kicad_cli
-from ..utils.kicad_lock import write_board
+from ..utils.kicad_lock import file_stamp, write_board
 from ..utils.kicad_version import get_pcb_version
 
 _KICAD_CLI_MISSING_MSG = """⚠️ kicad-cli not found (PATH or KiCad install directory).
@@ -55,6 +55,7 @@ async def setup_pcb_layout(
             return f"❌ Schematic file not found: {schematic_path}"
 
         pcb_path = sch_path.with_suffix(".kicad_pcb")
+        stamp = file_stamp(pcb_path)
 
         # KiCad .kicad_pcb coordinates are millimetres (plain decimals), NOT
         # nanometres — multiplying by 1e6 wrote ~100 km outlines (issue #17).
@@ -163,7 +164,7 @@ async def setup_pcb_layout(
 )
 '''
 
-        open_error = write_board(pcb_path, pcb_content, encoding="utf-8")
+        open_error = write_board(pcb_path, pcb_content, stamp, encoding="utf-8")
         if open_error:
             return open_error
 

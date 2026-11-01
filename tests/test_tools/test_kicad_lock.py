@@ -16,7 +16,10 @@ from kicad_mcp_server.tools.schematic_editor import (
 from kicad_mcp_server.utils.kicad_lock import (
     check_board_not_open,
     check_schematic_not_open,
+    file_stamp,
     lock_file_path,
+    write_board,
+    write_schematic,
 )
 
 from .test_sch_hierarchy import project, sch, write
@@ -148,6 +151,33 @@ class TestCheckBoardNotOpen:
         assert error.startswith("Error: KiCad has the board open")
         assert str(lock_path) in error
         assert "close the PCB editor" in error
+
+
+class TestWriteAfterAChange:
+    """An other program saved the file after the tool read it."""
+
+    def test_schematic(self, board):
+        root, _ = board
+        stamp = file_stamp(root)
+        root.write_text(sch("saved/by/kicad.kicad_sch"), encoding="utf-8")
+        os.utime(root, ns=(stamp[0] + 1_000_000, stamp[0] + 1_000_000))
+        error = write_schematic(root, "(kicad_sch)", stamp)
+        assert error is not None and "changed after this tool read it" in error
+        assert "saved/by/kicad" in root.read_text(encoding="utf-8")
+
+    def test_board_made_after_the_stamp(self, tmp_path):
+        pcb = tmp_path / "board.kicad_pcb"
+        stamp = file_stamp(pcb)
+        assert stamp is None
+        pcb.write_text("(kicad_pcb)", encoding="utf-8")
+        error = write_board(pcb, "(kicad_pcb (new))", stamp)
+        assert error is not None and "changed after this tool read it" in error
+        assert pcb.read_text(encoding="utf-8") == "(kicad_pcb)"
+
+    def test_no_change(self, board):
+        root, _ = board
+        assert write_schematic(root, "(kicad_sch)", file_stamp(root)) is None
+        assert root.read_text(encoding="utf-8") == "(kicad_sch)"
 
 
 WRITE_TOOLS = [

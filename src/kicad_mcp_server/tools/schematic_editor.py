@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 
 from ..server import mcp
-from ..utils.kicad_lock import write_schematic
+from ..utils.kicad_lock import file_stamp, write_schematic
 
 
 def _get_date_string() -> str:
@@ -403,6 +403,7 @@ async def add_hierarchical_label(
         path = Path(file_path)
         if not path.exists():
             return f"Error: File {file_path} does not exist"
+        stamp = file_stamp(path)
 
         resolved = _resolve_label_target(file_path, reference, pin, x, y)
         if isinstance(resolved, str):
@@ -417,7 +418,9 @@ async def add_hierarchical_label(
             f'\t\t(uuid "{uuid.uuid4()}")\n'
             f"\t)\n"
         )
-        open_error = write_schematic(path, _append_top_level(content, entry), encoding="utf-8")
+        open_error = write_schematic(
+            path, _append_top_level(content, entry), stamp, encoding="utf-8"
+        )
         if open_error:
             return open_error
         return (
@@ -465,6 +468,7 @@ async def add_global_label(
         path = Path(file_path)
         if not path.exists():
             return f"Error: File {file_path} does not exist"
+        stamp = file_stamp(path)
 
         resolved = _resolve_label_target(file_path, reference, pin, x, y)
         if isinstance(resolved, str):
@@ -481,7 +485,9 @@ async def add_global_label(
             f"\t\t)\n"
             f"\t)\n"
         )
-        open_error = write_schematic(path, _append_top_level(content, entry), encoding="utf-8")
+        open_error = write_schematic(
+            path, _append_top_level(content, entry), stamp, encoding="utf-8"
+        )
         if open_error:
             return open_error
         return (
@@ -511,6 +517,7 @@ async def add_component_from_library(
         path = Path(file_path)
         if not path.exists():
             return f"Error: File {file_path} does not exist"
+        stamp = file_stamp(path)
 
         content = path.read_text()
         comp_uuid = str(uuid.uuid4())
@@ -583,7 +590,7 @@ async def add_component_from_library(
         else:
             content = content + "\n" + component_entry + "\n"
 
-        open_error = write_schematic(path, content)
+        open_error = write_schematic(path, content, stamp)
         if open_error:
             return open_error
 
@@ -617,6 +624,7 @@ async def add_wire(
         path = Path(file_path)
         if not path.exists():
             return f"Error: File {file_path} does not exist"
+        stamp = file_stamp(path)
 
         content = path.read_text()
         pts_str = " ".join([f"(xy {x} {y})" for x, y in points])
@@ -634,7 +642,7 @@ async def add_wire(
         else:
             content = content + "\n" + wire_entry + "\n"
 
-        open_error = write_schematic(path, content)
+        open_error = write_schematic(path, content, stamp)
         if open_error:
             return open_error
 
@@ -658,6 +666,7 @@ async def add_label(
         path = Path(file_path)
         if not path.exists():
             return f"Error: File {file_path} does not exist"
+        stamp = file_stamp(path)
 
         content = path.read_text()
         label_uuid = str(uuid.uuid4())
@@ -675,7 +684,7 @@ async def add_label(
         else:
             content = content + "\n" + label_entry + "\n"
 
-        open_error = write_schematic(path, content)
+        open_error = write_schematic(path, content, stamp)
         if open_error:
             return open_error
         return f"✅ Label '{text}' added at ({x}, {y})"
