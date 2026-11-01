@@ -33,6 +33,43 @@ def lock(file_path, content=OWNER):
     return path
 
 
+DEVICE_LIBRARY = """(kicad_symbol_lib
+	(version 20241209)
+	(generator "kicad_symbol_editor")
+	(symbol "R"
+		(in_bom yes)
+		(on_board yes)
+		(property "Reference" "R" (at 0 0 0) (effects (font (size 1.27 1.27))))
+		(symbol "R_1_1"
+			(pin passive line (at 0 3.81 270) (length 1.27)
+				(name "~" (effects (font (size 1.27 1.27))))
+				(number "1" (effects (font (size 1.27 1.27))))
+			)
+			(pin passive line (at 0 -3.81 90) (length 1.27)
+				(name "~" (effects (font (size 1.27 1.27))))
+				(number "2" (effects (font (size 1.27 1.27))))
+			)
+		)
+	)
+)
+"""
+
+
+@pytest.fixture(autouse=True)
+def device_library(tmp_path, monkeypatch):
+    """A symbol library 'Device' with the symbol 'R', also without KiCad.
+
+    add_component_from_library reads the symbol before it writes. Without a
+    library, it stops before the guard.
+    """
+    library_dir = tmp_path / "symbols"
+    library_dir.mkdir()
+    (library_dir / "Device.kicad_sym").write_text(DEVICE_LIBRARY, encoding="utf-8")
+    monkeypatch.setattr(
+        "kicad_mcp_server.utils.kicad_version.get_kicad_symbol_dir", lambda: library_dir
+    )
+
+
 @pytest.fixture
 def board(tmp_path):
     """A project with a root schematic and a sub-sheet in a sub-directory."""
@@ -209,6 +246,12 @@ class TestWriteToolsRefuseOpenFiles:
         result = asyncio.run(add_wire(str(sub), [(0, 0), (10, 0)]))
         assert "✅" in result, result
         assert "(wire" in sub.read_text(encoding="utf-8")
+
+    def test_component_tool_writes_a_closed_schematic(self, board):
+        _, sub = board
+        result = asyncio.run(add_component_from_library(str(sub), "Device", "R", "R1", "10k"))
+        assert "✅" in result, result
+        assert '(lib_id "Device:R")' in sub.read_text(encoding="utf-8")
 
     def test_setup_pcb_layout_does_not_write_an_open_board(self, board):
         root, _ = board
