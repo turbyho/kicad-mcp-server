@@ -210,24 +210,20 @@ async def list_schematic_nets(
 
         # Sub-sheet detection: unnamed nets can't be resolved without hierarchy
         sch_path = Path(file_path)
-        subsheet_note = ""
         try:
             root_sch = find_root_schematic(sch_path)
+            subsheet = f"`{sch_path.name}` is a sub-sheet"
+            root_text = f"the root schematic `{root_sch.name}`" if root_sch else ""
         except AmbiguousRootError as e:
-            root_sch = None
+            subsheet = str(e)
+            root_text = "one of these root schematics"
+        subsheet_note = ""
+        if root_text:
             subsheet_note = (
-                f"**Note:** {e}. "
+                f"**Note:** {subsheet}. "
                 f"Unnamed wire-only nets cannot be resolved without the full "
                 f"hierarchy context and will not appear here. "
-                f"Use `generate_netlist` on one of these root schematics "
-                f"for complete net data."
-            )
-        if root_sch:
-            subsheet_note = (
-                f"**Note:** `{sch_path.name}` is a sub-sheet. "
-                f"Unnamed wire-only nets cannot be resolved without the full "
-                f"hierarchy context and will not appear here. "
-                f"Use `generate_netlist` on the root schematic `{root_sch.name}` "
+                f"Use `generate_netlist` on {root_text} "
                 f"for complete net data."
             )
 
