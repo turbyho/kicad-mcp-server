@@ -87,6 +87,13 @@ class TestSheetFiles:
         a = write(tmp_path / "a.kicad_sch", sch("board.kicad_sch"))
         assert sheet_files(root) == [root, a]
 
+    def test_text_variable_that_is_not_a_string(self, tmp_path):
+        root = project(tmp_path, "board", "${REV}.kicad_sch")
+        (tmp_path / "board.kicad_pro").write_text(
+            json.dumps({"text_variables": {"REV": 2}}), encoding="utf-8"
+        )
+        assert sheet_files(root) == [root]
+
     def test_missing_file_is_not_in_the_list(self, tmp_path):
         root = project(tmp_path, "board", "missing.kicad_sch")
         assert sheet_files(root) == [root]

@@ -123,7 +123,13 @@ def _text_variables(root: Path) -> dict[str, str]:
     variables: dict[str, str] = {}
     try:
         project = json.loads(root.with_suffix(PRO_SUFFIX).read_text(encoding="utf-8"))
-        variables.update(project.get("text_variables") or {})
+        # KiCad keeps the text variables as strings. Other values are not
+        # applicable to a file name.
+        variables.update(
+            (name, value)
+            for name, value in (project.get("text_variables") or {}).items()
+            if isinstance(value, str)
+        )
     except (OSError, ValueError, AttributeError, TypeError):
         pass
     variables["PROJECTNAME"] = root.stem
