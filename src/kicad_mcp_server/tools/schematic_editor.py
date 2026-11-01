@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 
 from ..server import mcp
+from ..utils.kicad_lock import write_schematic
 
 
 def _get_date_string() -> str:
@@ -416,7 +417,9 @@ async def add_hierarchical_label(
             f'\t\t(uuid "{uuid.uuid4()}")\n'
             f"\t)\n"
         )
-        path.write_text(_append_top_level(content, entry), encoding="utf-8")
+        open_error = write_schematic(path, _append_top_level(content, entry), encoding="utf-8")
+        if open_error:
+            return open_error
         return (
             f"✅ Hierarchical label '{name}' ({shape}) anchored on {reference}.{pin} "
             f"at ({round(ax, 3)}, {round(ay, 3)}) angle {angle}°"
@@ -478,7 +481,9 @@ async def add_global_label(
             f"\t\t)\n"
             f"\t)\n"
         )
-        path.write_text(_append_top_level(content, entry), encoding="utf-8")
+        open_error = write_schematic(path, _append_top_level(content, entry), encoding="utf-8")
+        if open_error:
+            return open_error
         return (
             f"✅ Global label '{label_name}' ({shape}) anchored on {reference}.{pin} "
             f"at ({round(ax, 3)}, {round(ay, 3)}) angle {angle}°"
@@ -578,7 +583,9 @@ async def add_component_from_library(
         else:
             content = content + "\n" + component_entry + "\n"
 
-        path.write_text(content)
+        open_error = write_schematic(path, content)
+        if open_error:
+            return open_error
 
         return f"""✅ Component added successfully!
 
@@ -627,7 +634,9 @@ async def add_wire(
         else:
             content = content + "\n" + wire_entry + "\n"
 
-        path.write_text(content)
+        open_error = write_schematic(path, content)
+        if open_error:
+            return open_error
 
         return "✅ Wire added"
     except Exception as e:
@@ -666,7 +675,9 @@ async def add_label(
         else:
             content = content + "\n" + label_entry + "\n"
 
-        path.write_text(content)
+        open_error = write_schematic(path, content)
+        if open_error:
+            return open_error
         return f"✅ Label '{text}' added at ({x}, {y})"
     except Exception as e:
         import traceback
